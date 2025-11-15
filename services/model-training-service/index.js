@@ -52,11 +52,15 @@ class ModelTrainingService {
       this.isTraining = true;
 
       // Публикация события начала обучения
-      const startEvent = new Event(EVENT_TYPES.MODEL_TRAINING_STARTED, {
-        jobId,
-        config,
-        timestamp: new Date()
-      }, 'model-training');
+      const startEvent = {
+        type: EVENT_TYPES.MODEL_TRAINING_STARTED,
+        data: {
+          jobId,
+          config,
+          timestamp: new Date()
+        },
+        source: 'model-training'
+      };
 
       await eventBus.publish(startEvent);
 
@@ -119,11 +123,15 @@ class ModelTrainingService {
       this.currentTrainingJob.error = error.message;
 
       // Публикация события об ошибке
-      const errorEvent = new Event('ModelTrainingFailed', {
-        jobId,
-        error: error.message,
-        timestamp: new Date()
-      }, 'model-training');
+      const errorEvent = {
+        type: 'ModelTrainingFailed',
+        data: {
+          jobId,
+          error: error.message,
+          timestamp: new Date()
+        },
+        source: 'model-training'
+      };
 
       await eventBus.publish(errorEvent);
 

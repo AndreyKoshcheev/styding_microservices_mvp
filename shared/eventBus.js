@@ -33,7 +33,9 @@ class EventBus {
 
     try {
       const channel = `events:${event.type}`;
-      const message = JSON.stringify(event.toJSON());
+      // Проверяем, есть ли метод toJSON, иначе используем сам объект
+      const eventData = event.toJSON ? event.toJSON() : event;
+      const message = JSON.stringify(eventData);
 
       await this.publisher.publish(channel, message);
       console.log(`Event published: ${event.type} to channel: ${channel}`);

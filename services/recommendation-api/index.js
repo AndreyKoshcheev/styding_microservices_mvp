@@ -185,12 +185,13 @@ class RecommendationAPI {
           COUNT(*) as total_recommendations,
           AVG(score) as avg_score,
           COUNT(CASE WHEN delivered_at IS NOT NULL THEN 1 END) as delivered_count,
-          model_version
+          model_version,
+          MAX(generated_at) as latest_generated_at
         FROM recommendations
         WHERE user_id = $1
           AND generated_at > NOW() - INTERVAL '${days} days'
         GROUP BY model_version
-        ORDER BY generated_at DESC
+        ORDER BY latest_generated_at DESC
         LIMIT 1
       `;
 
