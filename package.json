@@ -1,0 +1,33 @@
+{
+  "name": "microservices-recommendation-system",
+  "version": "1.0.0",
+  "description": "Микросервисная система рекомендаций товаров на основе Event Storming",
+  "main": "index.js",
+  "scripts": {
+    "start:activity": "node services/user-activity-service/index.js",
+    "start:recommendation": "node services/recommendation-engine/index.js",
+    "start:api": "node services/recommendation-api/index.js",
+    "start:model": "node services/model-training-service/index.js",
+    "dev": "concurrently \"npm run start:activity\" \"npm run start:recommendation\" \"npm run start:api\" \"npm run start:model\"",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "redis": "^4.6.7",
+    "pg": "^8.11.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.4.0",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "keywords": ["microservices", "recommendation-system", "event-storming", "nodejs"],
+  "author": "Your Name",
+  "license": "MIT"
+}

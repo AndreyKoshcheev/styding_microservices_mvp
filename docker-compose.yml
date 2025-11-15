@@ -1,0 +1,199 @@
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: recommendation-postgres
+    environment:
+      POSTGRES_DB: recommendation_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - recommendation-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis для EventBus и кэширования
+  redis:
+    image: redis:7-alpine
+    container_name: recommendation-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - recommendation-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # User Activity Service
+  user-activity-service:
+    build:
+      context: .
+      dockerfile: ./services/user-activity-service/Dockerfile
+    container_name: user-activity-service
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=recommendation_db
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - USER_ACTIVITY_SERVICE_PORT=3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - recommendation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Recommendation Engine
+  recommendation-engine:
+    build:
+      context: .
+      dockerfile: ./services/recommendation-engine/Dockerfile
+    container_name: recommendation-engine
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=recommendation_db
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RECOMMENDATION_ENGINE_PORT=3002
+      - USER_ACTIVITY_SERVICE_URL=http://user-activity-service:3001
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      user-activity-service:
+        condition: service_healthy
+    networks:
+      - recommendation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Recommendation API
+  recommendation-api:
+    build:
+      context: .
+      dockerfile: ./services/recommendation-api/Dockerfile
+    container_name: recommendation-api
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=recommendation_db
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RECOMMENDATION_API_PORT=3003
+      - USER_ACTIVITY_SERVICE_URL=http://user-activity-service:3001
+      - RECOMMENDATION_ENGINE_URL=http://recommendation-engine:3002
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      user-activity-service:
+        condition: service_healthy
+      recommendation-engine:
+        condition: service_healthy
+    networks:
+      - recommendation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Model Training Service
+  model-training-service:
+    build:
+      context: .
+      dockerfile: ./services/model-training-service/Dockerfile
+    container_name: model-training-service
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=recommendation_db
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_TRAINING_SERVICE_PORT=3004
+      - RECOMMENDATION_ENGINE_URL=http://recommendation-engine:3002
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      recommendation-engine:
+        condition: service_healthy
+    networks:
+      - recommendation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: recommendation-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - recommendation-api
+      - user-activity-service
+      - recommendation-engine
+      - model-training-service
+    networks:
+      - recommendation-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  recommendation-network:
+    driver: bridge
